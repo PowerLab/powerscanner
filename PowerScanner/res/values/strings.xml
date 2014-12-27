@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">PowerScanner</string>
+    <string name="running_on_startup">The Power Profiler will now run after your phone starts up.</string>
+    <string name="not_running_on_startup">The Power Profiler will no longer run on when your phone starts up.</string>
+    <string name="stop_sending_text">This application sends data on power utilization and running applications to the PowerTutor team. We gather nothing allowing us to associate the data with you or your phone; a cryptographically secure hash function is used to protect your identity.  Pressing \'Stop\' will prevent these data from being sent.</string>
+    <string name="start_sending_text">This application sends data on power utilization and running applications to the PowerTutor team. We gather nothing allowing us to associate the data with you or your phone; a cryptographically secure hash function is used to protect your identity.  Pressing \'Start\' will start sending the data from now on.</string>
+    <string name="unknown_phone">Your phone type is not recognized by PowerTutor. You may continue to use PowerTutor however we may not be able to get all of the data for your phone and the power calculations may not be accurate.</string>
+    <string name="url_2"><a href="http://powertutor.org">http://powertutor.org</a>.\n</string>
+    <string name="url_1">For detailed information, please go to: </string>
+    <!-- Sending Server Progress dialog -->
+    <string name="progress_title">Please wait\.\.\.</string>
+    <string name="write_progress_message">Power Estimating Data Sending\.\.\. </string>
+    <string name="action_settings">Settings</string>
+    <!-- activity_text -->
+    <string name="main_text_measure">측\t정</string>
+    <string name="main_text_print">출\t력</string>
+    <string name="main_text_datamanagement">데이터\n관\t리</string>
+    <string name="pm_text_start">시\t작</string>
+    <string name="pm_text_quit">종\t료</string>
+    <string name="pm_text_save">저\t장</string>
+    <string name="pm_text_info_main">If you want to know that power usage on your phone\n,Click 시작 Button.</string>
+    <string name="pm_text_info_save">If you want to saving log, Click 저장 Button.</string>
+    <string name="pdm_text_del">삭\t제</string>
+    <string name="pdm_text_cancel">취\t소</string>
+    <string name="pdm_text_trans">서버 송신</string>
+    <string name="pdm_text_receive">서버 수신</string>
+    <string name="pdm_text_filemanagement">파일 관리</string>
+    <string name="pp_text_select">열\t기</string>
+    <string name="pp_text_cancel">취\t소</string>
+    <string name="settings_safetylegal_activity_loading" >loading\.\.\.</string>
+    <string name="pp_menu_download" >다운로드 어플리케이션</string>
+	<string name="pp_menu_all" >전체 어플리케이션</string>
+	<string name="pp_menu_exit">종료</string>
+	
+    <!-- title_activity -->
+    <string name="title_activity_main">Power Scanner</string>
+    <string name="title_activity_pm__main">전력 소모 측정</string>
+    <string name="title_activity_pdm__main">데이터 관리</string>
+    <string name="title_activity_pdm__popup">파일 목록</string>
+    <string name="title_activity_pp__main">측정 데이터 출력</string>
+    <string name="title_activity_pp__popup">파일 목록</string>
+    <string name="information">* 이 어플리케이션은 현재 스마트폰에서 실행되어지고 있는 어플리케이션들을 수집하여, 각각의 전력소모를 실시간으로 측정하는 서비스를 제공합니다.\n
+        * 측정된 결과물은 파일형태로 저장할 수 있으며, 파일로 저장된 결과물을 통하여 당신의 스마트폰의 어플이 소모하는 시간당 평균 배터리 소모량을 알려줍니다.\n\n
+    * 수집하는 항목\n
+    - Phone model name\n
+    - Installed Application on this phone\n
+	- CPU use\n
+	- Amount of WiFi/3G traffic (not its content)\n
+	- Screen brightness\n
+	- GPS activity (but not location)\n
+ 	- Audio use (on/off, volume)\n
+	- Total power consumption\n
+	- Application resource utilization\n
+	- Phone mode, e.g., airplane mode or call status\n\n
+	
+	* 수집하는 정보는 서비스 제공 용도외에는 사용되지 않습니다.\n
+	* 이 어플리케이션은 Open Source인 PowerTutor를 활용하였습니다.</string>
+
+</resources>

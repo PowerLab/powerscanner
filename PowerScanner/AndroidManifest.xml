@@ -1,0 +1,138 @@
+<?xml version="1.1" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.cnu.PowerTutor"
+    android:versionCode="13"
+    android:versionName="1.4" >
+
+    <uses-sdk android:minSdkVersion="3" />
+
+    <application
+        android:icon="@drawable/icon"
+        android:label="@string/app_name" >
+        <activity android:name="edu.cnu.PowerTutor.ui.Help" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="edu.cnu.PowerTutor.ui.PowerViewer" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="edu.cnu.PowerTutor.ui.AppChoiceView"
+            android:label="App Choice View" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="edu.cnu.PowerTutor.ui.PowerPie" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="edu.cnu.PowerTutor.ui.MiscView" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="edu.cnu.PowerTutor.ui.PowerTabs"
+            android:theme="@android:style/Theme.NoTitleBar" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="edu.cnu.PowerTutor.ui.EditPreferences"
+            android:label="PowerTutor Options" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="edu.cnu.PowerTutor.ui.ViewerPreferences"
+            android:label="PowerTutor History Options" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="edu.cnu.PowerTutor.widget.Configure"
+            android:label="Configure PowerTutor Widget" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="edu.cnu.PowerTutor.widget.DataSourceConfigure"
+            android:label="Configure Data Source" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name="edu.cnu.PowerTutor.ui.StartupReceiver" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+
+                <category android:name="android.intent.category.HOME" />
+            </intent-filter>
+        </receiver>
+
+        <service android:name="edu.cnu.PowerTutor.service.UMLoggerService" >
+        </service>
+
+        <receiver android:name="edu.cnu.PowerTutor.widget.PowerWidget" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
+        <activity
+            android:name="edu.cnu.PowerTutor.MainActivity"
+            android:label="@string/title_activity_main" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="power_dataManagement.PDM_MainActivity"
+            android:label="@string/title_activity_pdm__main" >
+        </activity>
+        <activity
+            android:name="power_measure.PM_MainActivity"
+            android:label="@string/title_activity_pm__main" >
+        </activity>
+        <activity
+            android:name="power_dataManagement.PDM_PopupActivity"
+            android:label="@string/title_activity_pdm__popup"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Dialog" >
+        </activity>
+        <activity
+            android:name="power_print.PP_MainActivity"
+            android:label="@string/title_activity_pp__main" >
+        </activity>
+        <activity
+            android:name="power_print.PP_PopupActivity"
+            android:label="@string/title_activity_pp__popup"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Dialog" >
+        </activity>
+    </application>
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+</manifest>

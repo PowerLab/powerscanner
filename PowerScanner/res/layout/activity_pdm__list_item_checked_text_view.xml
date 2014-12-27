@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheckedTextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/PDM_single_choice"
+    android:layout_width="match_parent"
+    android:layout_height="?android:attr/listPreferredItemHeight"
+    android:checkMark="?android:attr/listChoiceIndicatorSingle"
+    android:gravity="center_vertical"
+    android:paddingLeft="15dip"
+    android:paddingRight="10dip"
+    android:textAppearance="?android:attr/textAppearanceMedium"
+    android:textColor="#ff000000" >
+
+</CheckedTextView>

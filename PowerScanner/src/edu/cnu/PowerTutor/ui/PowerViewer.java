@@ -1,0 +1,709 @@
+/*
+Copyright (C) 2011 The University of Michigan
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+Please send inquiries to powertutor@umich.edu
+ */
+
+package edu.cnu.PowerTutor.ui;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.util.Vector;
+
+import org.achartengine.GraphicalView;
+import org.achartengine.chart.CubicLineChart;
+import org.achartengine.model.XYMultipleSeriesDataset;
+import org.achartengine.model.XYSeries;
+import org.achartengine.renderer.XYMultipleSeriesRenderer;
+import org.achartengine.renderer.XYSeriesRenderer;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.StatusLine;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+
+import android.app.Activity;
+import android.app.Dialog;
+import android.app.ProgressDialog;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Message;
+import android.os.RemoteException;
+import android.os.SystemClock;
+import android.preference.PreferenceManager;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.WindowManager.BadTokenException;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+import edu.cnu.PowerTutor.R;
+import edu.cnu.PowerTutor.service.ICounterService;
+import edu.cnu.PowerTutor.service.PowerEstimator;
+import edu.cnu.PowerTutor.service.UMLoggerService;
+import edu.umich.PowerTutor.util.SystemInfo;
+
+public class PowerViewer extends Activity {
+	private static final String TAG = "PowerViewer";
+	private static final int HTTP_STATUS_OK = 200;
+	// Dialog를 선택해서 출력하기 위한 상수.
+	public static final int DIALOG_PROBABILITY_PROGRESS = 1;
+	private int PROGRESS_MAX = 300; // 300개의 데이터를 전송
+
+	// 핸들러 메시지를 구분하기 위한 상수 이다.
+	public final static int PROCESSRESULT = 1;
+
+	private SharedPreferences prefs;
+	private int uid;
+
+	private int components;
+	private String[] componentNames;
+	private int[] componentsMaxPower;
+	private int noUidMask;
+	private boolean collecting;
+
+	private ValueCollector[] collectors;
+
+	private Intent serviceIntent;
+	private CounterServiceConnection conn;
+	private ICounterService counterService;
+
+	// 그냥 메인 핸들러를 사용 한다. 단점 : 메인 핸들러는 위험 하다. ANR 에러가 발생할 수 있다.
+	private Handler handler;
+
+	private LinearLayout chartLayout;
+
+	// 선택한 정보를 저장한다.
+	private int SeletedUid;
+	private String SeletedPackageName;
+
+	// 프로그레스바 변수이다.
+	private ProgressDialog mWriteProgressDialog;
+
+	public void refreshView() {
+		if (counterService == null) {
+			TextView loadingText = new TextView(this);
+			loadingText.setText("Waiting for profiler service...");
+			loadingText.setGravity(Gravity.CENTER);
+			setContentView(loadingText);
+			return;
+		}
+
+		chartLayout = new LinearLayout(this);
+		chartLayout.setOrientation(LinearLayout.VERTICAL);
+
+		if (uid == SystemInfo.AID_ALL) {
+			/*
+			 * If we are reporting global power usage then just set noUidMask to
+			 * 0 so that all components get displayed.
+			 */
+			noUidMask = 0;
+		}
+		components = 0;
+		for (int i = 0; i < componentNames.length; i++) {
+			if ((noUidMask & 1 << i) == 0) {
+				components++;
+			}
+		}
+		boolean showTotal = prefs.getBoolean("showTotalPower", false);
+		collectors = new ValueCollector[(showTotal ? 1 : 0) + components];
+
+		int pos = 0;
+		for (int i = showTotal ? -1 : 0; i < componentNames.length; i++) {
+			if (i != -1 && (noUidMask & 1 << i) != 0) {
+				continue;
+			}
+			String name = i == -1 ? "Total" : componentNames[i];
+			double mxPower = (i == -1 ? 2100.0 : componentsMaxPower[i]) * 1.05;
+
+			XYSeries series = new XYSeries(name);
+			XYMultipleSeriesDataset mseries = new XYMultipleSeriesDataset();
+			mseries.addSeries(series);
+
+			XYMultipleSeriesRenderer renderer = new XYMultipleSeriesRenderer();
+			XYSeriesRenderer srenderer = new XYSeriesRenderer();
+			renderer.setYAxisMin(0.0);
+			renderer.setYAxisMax(mxPower);
+			renderer.setYTitle(name + "(mW)");
+
+			int clr = PowerPie.COLORS[(PowerPie.COLORS.length + i)
+					% PowerPie.COLORS.length];
+			srenderer.setColor(clr);
+			srenderer.setFillBelowLine(true);
+			srenderer.setFillBelowLineColor(((clr >> 1) & 0x7F7F7F)
+					| (clr & 0xFF000000));
+			renderer.addSeriesRenderer(srenderer);
+
+			View chartView = new GraphicalView(this, new CubicLineChart(
+					mseries, renderer, 0.5f));
+			chartView.setMinimumHeight(100);
+			chartLayout.addView(chartView);
+
+			collectors[pos] = new ValueCollector(series, renderer, chartView, i);
+			if (handler != null) {
+				// Main Handler의 부하를 막기위해 제거한다. (debug)
+				handler.post(collectors[pos]);
+			}
+			pos++;
+		}
+
+		/*
+		 * We're giving 100 pixels per graph of vertical space for the chart
+		 * view. If we don't specify a minimum height the chart view ends up
+		 * having a height of 0 so this is important.
+		 */
+		chartLayout.setMinimumHeight(100 * components);
+
+		ScrollView scrollView = new ScrollView(this);
+		scrollView.addView(chartLayout);
+		setContentView(scrollView);
+	}
+
+	private class CounterServiceConnection implements ServiceConnection {
+		public void onServiceConnected(ComponentName className,
+				IBinder boundService) {
+			counterService = ICounterService.Stub
+					.asInterface((IBinder) boundService);
+			try {
+				componentNames = counterService.getComponents();
+				componentsMaxPower = counterService.getComponentsMaxPower();
+				noUidMask = counterService.getNoUidMask();
+				refreshView();
+			} catch (RemoteException e) {
+				counterService = null;
+			}
+		}
+
+		public void onServiceDisconnected(ComponentName className) {
+			counterService = null;
+			getApplicationContext().unbindService(conn);
+			getApplicationContext().bindService(serviceIntent, conn, 0);
+			Log.w(TAG, "Unexpectedly lost connection to service");
+		}
+	}
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		prefs = PreferenceManager.getDefaultSharedPreferences(this);
+		uid = getIntent().getIntExtra("uid", SystemInfo.AID_ALL);
+
+		collecting = true;
+		if (savedInstanceState != null) {
+			collecting = savedInstanceState.getBoolean("collecting", true);
+			componentNames = savedInstanceState
+					.getStringArray("componentNames");
+			noUidMask = savedInstanceState.getInt("noUidMask");
+		}
+
+		serviceIntent = new Intent(this, UMLoggerService.class);
+		conn = new CounterServiceConnection();
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		handler = new Handler();
+		getApplicationContext().bindService(serviceIntent, conn, 0);
+
+		refreshView();
+	}
+
+	@Override
+	protected void onPause() {
+		super.onPause();
+		getApplicationContext().unbindService(conn);
+		if (collectors != null)
+			for (int i = 0; i < components; i++) {
+				handler.removeCallbacks(collectors[i]);
+			}
+		counterService = null;
+		handler = null;
+		collecting = true;
+	}
+
+	@Override
+	protected void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+		outState.putBoolean("collecting", collecting);
+		outState.putStringArray("componentNames", componentNames);
+		outState.putInt("noUidMask", noUidMask);
+	}
+
+	/* Let all of the UI graphs lay themselves out again. */
+	private void stateChanged() {
+		for (int i = 0; i < components; i++) {
+			collectors[i].layout();
+		}
+	}
+
+	private static final int MENU_OPTIONS = 0;
+	private static final int MENU_TOGGLE_COLLECTING = 1;
+	private static final int MENU_APP_RATING = 2;
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		menu.add(0, MENU_OPTIONS, 0, "Options");
+		menu.add(0, MENU_TOGGLE_COLLECTING, 0, "");
+		menu.add(0, MENU_APP_RATING, 0, "App Rating");
+		return true;
+	}
+
+	@Override
+	public boolean onPrepareOptionsMenu(Menu menu) {
+		menu.findItem(MENU_TOGGLE_COLLECTING).setTitle(
+				collecting ? "Pause" : "Resume");
+		return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		switch (item.getItemId()) {
+		case MENU_OPTIONS:
+			startActivity(new Intent(this, ViewerPreferences.class));
+			return true;
+		case MENU_TOGGLE_COLLECTING:
+			collecting = !collecting;
+			if (handler != null) {
+				if (collecting)
+					for (int i = 0; i < components; i++) {
+						collectors[i].reset();
+						handler.post(collectors[i]);
+					}
+				else
+					for (int i = 0; i < components; i++) {
+						handler.removeCallbacks(collectors[i]);
+					}
+			}
+			break;
+		// Power consumption data send to my server #justin
+		case MENU_APP_RATING:
+			Intent intent = new Intent(this, AppChoiceView.class);
+			startActivityForResult(intent, 0);
+			/*
+			 * new Thread() { public void start() { int[] valuesServer = new
+			 * int[300]; try {
+			 * 
+			 * valuesServer = counterService.getComponentHistory(300,
+			 * -1,SystemInfo.AID_ALL); } catch (RemoteException e1) { // TODO
+			 * Auto-generated catch block e1.printStackTrace(); }
+			 * 
+			 * for(int i=0; i<300; i++){ //데이터를 웹서버에 보내고 받아온 결과를 출력합니다. try {
+			 * sendData("a",""+valuesServer[i], "123" ); } catch
+			 * (ClientProtocolException e) { // TODO Auto-generated catch block
+			 * e.printStackTrace(); } catch (IOException e) { // TODO
+			 * Auto-generated catch block e.printStackTrace(); } } } }.start();
+			 */
+			break;
+		}
+		return false;
+	}
+
+	/**
+	 * 실제적으로 다이얼로그 창을 생성하는 부분이다. 이렇게 한번 다이얼로그를 생성해놓고 재사용하면 시스템의 성능을 향상 시킬 수 있다.
+	 */
+	@Override
+	protected Dialog onCreateDialog(int id) {
+		switch (id) {
+		case DIALOG_PROBABILITY_PROGRESS:
+			mWriteProgressDialog = new ProgressDialog(this);
+			mWriteProgressDialog.setIcon(android.R.drawable.ic_dialog_info);
+			mWriteProgressDialog.setTitle(getString(R.string.progress_title));
+			mWriteProgressDialog
+					.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+			mWriteProgressDialog.setCancelable(false);
+			mWriteProgressDialog
+					.setMessage(getString(R.string.write_progress_message));
+
+			// progress bar 크기를 설정한다.
+			mWriteProgressDialog.setMax(PROGRESS_MAX);
+			Log.d(TAG, "onCreateDialog pass");
+
+			return mWriteProgressDialog;
+		}
+		return null;
+	}
+
+	/**
+	 * Dialog를 종료해 준다.
+	 */
+	public void dismissDialogSafely(final int id) {
+		runOnUiThread(new Runnable() {
+			public void run() {
+				try {
+					dismissDialog(id);
+				} catch (IllegalArgumentException e) {
+					// 에러 핸들링 코드를 작성 한다.
+					Log.w(TAG, "Could not dismiss dialog with id " + id, e);
+				}
+			}
+		});
+	}
+
+	/**
+	 * 안전하게 Dialog를 보여준다는 뜻은 결국 Main UI에서 처리를 해야한다는 뜻을 의미 한다.
+	 */
+	public void showDialogSafely(final int id) {
+		// 강제적으로 UI Thread와 동기화 시키는 쓰레드 이다.
+		// 즉 화면의 표시를 결정하기 위해 사용되어 진다.
+		runOnUiThread(new Runnable() {
+			public void run() {
+				try {
+					// 다이얼로그 인스턴스를 한번 생성하고 지속시켜서 매번 그것을 재사용 한다.
+					// 어떤 다이얼로그가 불려지는지 정확히 알기 위해서는 onCreateDialog 핸들러를 봐야 한다.
+					showDialog(id);
+
+				} catch (BadTokenException e) {
+					Log.w(TAG, "Could not display dialog with id " + id, e);
+				} catch (IllegalStateException e) {
+					Log.w(TAG, "Could not display dialog with id " + id, e);
+				}
+			}
+		});
+	}
+
+	// 처리 프로그래스 바의 딜레이를 담당하는 UI제어 관련 Thread이다.
+	public void saveProgress(int arTime) {
+
+		showDialogSafely(DIALOG_PROBABILITY_PROGRESS);
+		Log.d(TAG, "saveProgress pass");
+		// dismissDialogSafely(DIALOG_PROBABILITY_PROGRESS);
+		// 결과 메시지를 처리하여 준다. 성공 했는지 실패 했는지를..
+		// showMessageDialog(0, true);
+	}
+
+	// 사용자가 선택한 정보를 얻어온다.
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		// TODO Auto-generated method stub
+		switch (requestCode) {
+		case 0:
+			if (resultCode == RESULT_OK) {
+				SeletedUid = data.getIntExtra("uid", 0);
+				SeletedPackageName = data.getStringExtra("package_name");
+				Toast.makeText(PowerViewer.this,
+						"Extra Data: " + SeletedUid + " " + SeletedPackageName,
+						Toast.LENGTH_SHORT).show();
+
+				// 본격 적으로 선택한 데이터와 측정된 데이터를 서버로 전송 한다.
+				// 전송 진행 과정을 시각적으로 보기위해서 프로그레스바 위젯을 이용 한다.
+				saveProgress(PROGRESS_MAX); // 프로그레스 바를 생성 한다.
+
+				// 프로그레스바를 처리할 Thread이자 데이터를 Server로 전송할 Thread이다.
+				processResultThread mProcessResultThread = new processResultThread();
+
+				// Thread를 시작 시킨다.
+				mProcessResultThread.start();
+				Log.d(TAG, "Thread start pass");
+			}
+			break;
+		}
+	}
+
+	class processResultThread extends Thread {
+
+		int mValue = 0;
+
+		/* 전력 측정 결과를 저장할 변수들이다. */
+		int[] TotalPower = new int[PROGRESS_MAX];
+		int[] LedPower = new int[PROGRESS_MAX];
+		int[] CpuPower = new int[PROGRESS_MAX];
+		int[] WiFiPower = new int[PROGRESS_MAX];
+		int[] ThreegPower = new int[PROGRESS_MAX];
+		int[] GpsPower = new int[PROGRESS_MAX];
+		int[] AudioPower = new int[PROGRESS_MAX];
+
+		public void run() {
+
+			/*
+			 * 서비스에 의해서 전력 정보가 수집되는데 이 정보를 딱 한번 가져온다
+			 */
+			// Race Condition을 막아준다. ex : IBinder가 설정된 다음에 실행해야
+			// NullPointerException이
+			// 발생하지 않는다.
+			while (counterService == null) {
+				try {
+					Thread.sleep(1);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			;
+
+			try {
+				TotalPower = counterService.getComponentHistory(PROGRESS_MAX,
+						-1, SystemInfo.AID_ALL);
+				LedPower = counterService.getComponentHistory(PROGRESS_MAX, 0,
+						SystemInfo.AID_ALL);
+				CpuPower = counterService.getComponentHistory(PROGRESS_MAX, 1,
+						SystemInfo.AID_ALL);
+				WiFiPower = counterService.getComponentHistory(PROGRESS_MAX, 2,
+						SystemInfo.AID_ALL);
+				ThreegPower = counterService.getComponentHistory(PROGRESS_MAX,
+						3, SystemInfo.AID_ALL);
+				GpsPower = counterService.getComponentHistory(PROGRESS_MAX, 4,
+						SystemInfo.AID_ALL);
+				AudioPower = counterService.getComponentHistory(PROGRESS_MAX,
+						5, SystemInfo.AID_ALL);
+			} catch (RemoteException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			Log.d(TAG, "processResult information 6 pass");
+
+			while (mValue < PROGRESS_MAX) {
+
+				mValue++;
+
+				// 썻던거 재사용해서 성능을 향상 시킨다.
+				Message msg = mTimerHandler.obtainMessage();
+				msg.what = PROCESSRESULT;
+				msg.arg1 = mValue;
+
+				try {
+					sendData(mValue, SeletedPackageName,
+							TotalPower[mValue - 1], LedPower[mValue - 1],
+							CpuPower[mValue - 1], WiFiPower[mValue - 1],
+							ThreegPower[mValue - 1], GpsPower[mValue - 1],
+							AudioPower[mValue - 1]);
+				} catch (ClientProtocolException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				mTimerHandler.sendMessage(msg);
+			}
+		}
+	}
+
+	// Main Handler를 사용하면 느리기 때문에 사용자 정의 핸들러를 사용해 준다.
+	Handler mTimerHandler = new Handler() {
+
+		public void handleMessage(Message msg) {
+			String mDialogMessage = "";
+			// 처리 결과를 반영 하라는 메시지이다.
+			if (msg.what == PROCESSRESULT) {
+				mWriteProgressDialog.setProgress(msg.arg1);
+				// main UI의 다이얼 로그를 정지 시킨다.
+				if (msg.arg1 >= PROGRESS_MAX) {
+					dismissDialogSafely(DIALOG_PROBABILITY_PROGRESS);
+				}
+				return;
+			}
+		}
+	};
+
+	// 메인 핸들러를 지우고 커스텀 메시지 핸들러에서 처리한다. 메시지를 처리한다.
+	// 위 문제를 해결하기 위해 핸들러를 정의한다.
+	private Handler mHandler = new Handler() {
+		public void handleMessage(Message msg) {
+			String mDialogMessage = "";
+			// 처리 결과를 반영 하라는 메시지이다.
+			if (msg.what == PROCESSRESULT) {
+				mWriteProgressDialog.setProgress(msg.arg1);
+				// main UI의 다이얼 로그를 정지 시킨다.
+				if (msg.arg1 >= PROGRESS_MAX) {
+					dismissDialogSafely(DIALOG_PROBABILITY_PROGRESS);
+				}
+				return;
+			}
+		}
+	};
+
+	private String sendData(int time, String PackageName, int total, int led,
+			int cpu, int wifi, int threeg, int gps, int audio)
+			throws ClientProtocolException, IOException {
+		// TODO Auto-generated method stub
+		String result = null;
+		// String url =
+		// "http://168.188.128.36:8080/AppRating/powerEstimator.jsp";
+		String url = "http://192.168.10.5:8880/powerScanner/input.jsp";
+		// String url = "http://121.183.158.168:8880/powerScanner/input.jsp";
+		// String url = "http://113.216.161.195:8880/powerScanner/input.jsp";
+		HttpPost request = makeHttpPost(time, PackageName, total, led, cpu,
+				wifi, threeg, gps, audio, url);
+
+		// this method create HttpClient instance -package name :
+		// org.apache.http.impl.client -
+		HttpClient client = new DefaultHttpClient();
+		// ResponseHandler<String> reshandler = new BasicResponseHandler() ;
+
+		HttpResponse response = client.execute(request);
+		// detection true, as response message
+		StatusLine status = response.getStatusLine();
+		if (status.getStatusCode() != HTTP_STATUS_OK) {
+			result = "Invalid response from server : " + status.toString();
+			return result;
+		}
+		// if ture status is gotten form responding object .
+		HttpEntity entity = response.getEntity();
+		InputStream is = entity.getContent();
+		// Entity change for string
+		BufferedReader reader = new BufferedReader(new InputStreamReader(is,
+				"iso-8859-1"), 8);
+		StringBuilder sb = new StringBuilder();
+		String line = null;
+		while ((line = reader.readLine()) != null) {
+			sb.append(line).append("\n");
+		}
+		is.close();
+		result = sb.toString();
+
+		return result;
+	}
+
+	private HttpPost makeHttpPost(int time, String PackageName, int total,
+			int led, int cpu, int wifi, int threeg, int gps, int audio,
+			String url) {
+		// TODO Auto-generated method stub
+
+		HttpPost request = new HttpPost(url); // HttpPost instance create
+		Vector<NameValuePair> nameValue = new Vector<NameValuePair>();
+		// 데이터를 실제적으로 벡터에 셋하는 부분이다.
+		nameValue.add(new BasicNameValuePair("packagename", PackageName));
+		nameValue.add(new BasicNameValuePair("total", Integer.toString(total)));
+		nameValue.add(new BasicNameValuePair("led", Integer.toString(led)));
+		nameValue.add(new BasicNameValuePair("cpu", Integer.toString(cpu)));
+		nameValue.add(new BasicNameValuePair("wifi", Integer.toString(wifi)));
+		nameValue
+				.add(new BasicNameValuePair("threeg", Integer.toString(threeg)));
+		nameValue.add(new BasicNameValuePair("gps", Integer.toString(gps)));
+		nameValue.add(new BasicNameValuePair("audio", Integer.toString(audio)));
+		nameValue.add(new BasicNameValuePair("time", Integer.toString(time)));
+		request.setEntity(makeEntity(nameValue));
+		return request;
+	}
+
+	private HttpEntity makeEntity(Vector<NameValuePair> nameValue) {
+		HttpEntity result = null;
+		try {
+			result = new UrlEncodedFormEntity(nameValue, "UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return result;
+	}
+
+	public class ValueCollector implements Runnable {
+		private XYSeries series;
+		private XYMultipleSeriesRenderer renderer;
+		private View chartView;
+
+		private int componentId;
+		private long lastTime;
+
+		int[] values;
+
+		private boolean readHistory;
+
+		public ValueCollector(XYSeries series,
+				XYMultipleSeriesRenderer renderer, View chartView,
+				int componentId) {
+			this.series = series;
+			this.renderer = renderer;
+			this.chartView = chartView;
+			this.componentId = componentId;
+			lastTime = SystemClock.elapsedRealtime();
+			layout();
+		}
+
+		public void layout() {
+			int numVals = Integer.parseInt(prefs.getString("viewNumValues_s",
+					"60"));
+			values = new int[numVals];
+			renderer.clearXTextLabels();
+			renderer.setXAxisMin(0);
+			renderer.setXAxisMax(numVals - 1);
+			renderer.addXTextLabel(numVals - 1, "" + numVals);
+			renderer.setXLabels(0);
+			for (int j = 0; j < 10; j++) {
+				renderer.addXTextLabel(numVals * j / 10, ""
+						+ (1 + numVals * j / 10));
+			}
+
+			reset();
+		}
+
+		/** Restart points collecting from zero. */
+		public void reset() {
+			series.clear();
+			readHistory = true;
+		}
+
+		// - 실제적으로 그래프를 업데이트 하는 코드이다. -
+		// 하나의 Thread로 하나의 그래프만을 담당한다. for example : LED or CPU
+		public void run() {
+			int numVals = Integer.parseInt(prefs.getString("viewNumValues_s",
+					"60"));
+			if (counterService != null)
+				try {
+					if (readHistory) {
+						values = counterService.getComponentHistory(numVals,
+								componentId, uid);
+						readHistory = false;
+					} else {
+						for (int i = numVals - 1; i > 0; i--) {
+							values[i] = values[i - 1];
+						}
+						values[0] = counterService.getComponentHistory(1,
+								componentId, uid)[0];
+					}
+				} catch (RemoteException e) {
+					Log.w(TAG, "Failed to get data from service");
+					for (int i = 0; i < numVals; i++) {
+						values[i] = 0;
+					}
+				}
+
+			series.clear();
+			for (int i = 0; i < numVals; i++) {
+				series.add(i, values[i]);
+			}
+
+			long curTime = SystemClock.elapsedRealtime();
+			long tryTime = lastTime
+					+ PowerEstimator.ITERATION_INTERVAL
+					* (long) Math.max(1, 1 + (curTime - lastTime)
+							/ PowerEstimator.ITERATION_INTERVAL);
+			if (handler != null) {
+				handler.postDelayed(this, tryTime - curTime);
+			}
+
+			chartView.invalidate();
+		}
+	}
+}
