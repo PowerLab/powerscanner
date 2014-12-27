@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy 2 elements to &apos;powerScanner/src/bean&apos;&#x0D;&#x0A;- Original project: &apos;powerDB&apos;&#x0D;&#x0A;- Destination element: &apos;powerScanner/src/bean&apos;&#x0D;&#x0A;- Original elements:&#x0D;&#x0A;     bean.appDAO.java&#x0D;&#x0A;     bean.appDTO.java" description="Copy compilation units" destination="=powerScanner/src&lt;bean" element1="/src&lt;bean{appDAO.java" element2="/src&lt;bean{appDTO.java" files="0" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1378137624748" units="2" version="1.0"/>
+</session>

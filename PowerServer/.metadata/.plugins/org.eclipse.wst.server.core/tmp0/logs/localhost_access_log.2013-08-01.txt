@@ -1,0 +1,2 @@
+192.168.10.5 - - [01/Aug/2013:00:35:28 +0900] "GET /powerScanner/result.jsp HTTP/1.1" 200 1395308
+192.168.10.5 - - [01/Aug/2013:00:39:02 +0900] "GET /powerScanner/result.jsp HTTP/1.1" 200 1395308

@@ -1,0 +1,7 @@
+INDEX VERSION 1.122+F:\Dropbox\AndroidProject\JavaDB\.metadata\.plugins\org.eclipse.wst.jsdt.core\indexes
+2416500270.index
+2499154892.index
+1035489384.index
+2056003174.index
+1859746089.index
+1696297257.index

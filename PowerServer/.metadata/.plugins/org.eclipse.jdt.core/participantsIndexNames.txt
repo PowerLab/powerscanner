@@ -1,0 +1,5 @@
+INDEX VERSION 1.126
+F:\Dropbox\AndroidProject\JavaDB\.metadata\.plugins\org.eclipse.jst.jsp.core\jspsearch\3767372979.index
+\powerDB\src
+F:\Dropbox\AndroidProject\JavaDB\.metadata\.plugins\org.eclipse.jst.jsp.core\jspsearch\1806687130.index
+\powerScanner\src
