@@ -16,7 +16,7 @@ public class DBMgr {
 	
 	String url = "jdbc:mysql://localhost/powerscanner";
 	String user = "root";
-	String pass = "tntn";
+	String pass = "passwd";
 
 	public static DBMgr getInstance() {
 

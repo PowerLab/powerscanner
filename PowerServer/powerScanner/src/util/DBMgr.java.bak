@@ -12,11 +12,10 @@ public class DBMgr {
 	static DBMgr dbm;
 	Connection con;
 	Statement stmt;
-	PreparedStatement pst;
 	ResultSet rs;
 	
-	String url = "jdbc:oracle:thin:@192.168.10.79:1521:xe";
-	String user = "thyang";
+	String url = "jdbc:mysql://localhost/powerscanner";
+	String user = "root";
 	String pass = "tntn";
 
 	public static DBMgr getInstance() {
@@ -30,7 +29,7 @@ public class DBMgr {
 	
 	private DBMgr(){//»ý¼ºÀÚ
 		try {
-			Class.forName("oracle.jdbc.driver.OracleDriver");
+			Class.forName("com.mysql.jdbc.Driver");
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -41,6 +40,7 @@ public class DBMgr {
 			con = DriverManager.getConnection(url, user, pass);
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
+			con = null;
 			e.printStackTrace();
 		}
 		return con;

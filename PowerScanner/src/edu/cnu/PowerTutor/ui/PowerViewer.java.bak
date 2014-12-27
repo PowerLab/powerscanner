@@ -548,7 +548,7 @@ public class PowerViewer extends Activity {
 			throws ClientProtocolException, IOException {
 		// TODO Auto-generated method stub
 		String result = null;
-		String url = "http://192.168.10.5:8880/powerScanner/input.jsp"; // Server Page IP address
+		String url = "http://192.168.10.5:8880/powerScanner/input.jsp"; // Server Page IP
 		HttpPost request = makeHttpPost(time, PackageName, total, led, cpu,
 				wifi, threeg, gps, audio, url);
 
